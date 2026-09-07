@@ -6,6 +6,15 @@ GUID: `6b8790b2-e367-4076-8e07-9fc092702b32`
 
 Repo layout follows the [official Jellyfin plugin template](https://github.com/jellyfin/jellyfin-plugin-template).
 
+## Installation
+
+1. Add `https://raw.githubusercontent.com/fasterplayer/jellyfin-audio-track-priority/main/manifest.json` to your plugin repositories (**Dashboard → Plugins → Repositories → "+"**).
+2. Install `Audio Track Priority` from the Catalogue.
+3. Restart Jellyfin.
+4. In the admin dashboard, head to **Plugins → My Plugins** and select `Audio Track Priority`.
+5. You'll be presented with the settings page: enable the plugin, pick a fallback language, and add a rule per language with the title patterns to prioritize (see "Finding the title to use for a pattern" below for how to find those).
+6. Save the settings.
+
 ## How it works
 
 A dependency-injection decorator on `IMediaSourceManager`, registered through `IPluginServiceRegistrator`, re-evaluates the default audio and subtitle track on every media source Jellyfin returns. No media file is modified — the decision is purely at serve time.
@@ -41,7 +50,8 @@ Adjust the container name, mounted path and file path to match your setup. Whate
 
 - `Jellyfin.Plugin.AudioTrackPriority.slnx` — solution file
 - `Directory.Build.props` — shared version properties (assembly/file/package version)
-- `build.yaml` — plugin manifest (name, GUID, version, target ABI, description, changelog)
+- `build.yaml` — plugin manifest fed to the build tooling (name, GUID, version, target ABI, description, changelog)
+- `manifest.json` — the Jellyfin **plugin repository** manifest consumed by "Installation" above; not to be confused with `build.yaml`
 - `Jellyfin.Plugin.AudioTrackPriority/`
   - `Plugin.cs` — plugin entry point
   - `ServiceRegistrator.cs` — DI registration of the decorator
@@ -51,13 +61,47 @@ Adjust the container name, mounted path and file path to match your setup. Whate
   - `Configuration/LanguageRule.cs` — per-language rule (audio + subtitle)
   - `Configuration/configPage.html` — admin configuration page
 
-## Building
+## Building from source
 
 ```
 dotnet build Jellyfin.Plugin.AudioTrackPriority.slnx -c Release
 ```
 
-Copy the resulting `Jellyfin.Plugin.AudioTrackPriority.dll` (and a `meta.json` derived from `build.yaml`) into your Jellyfin server's plugin directory (e.g. `plugins/AudioTrackPriority/`) and restart Jellyfin.
+Copy the resulting `Jellyfin.Plugin.AudioTrackPriority.dll` into your Jellyfin server's plugin directory (e.g. `plugins/AudioTrackPriority/`, alongside a `meta.json` derived from `build.yaml`) and restart Jellyfin. This is a manual, one-server install that bypasses the repository/manifest entirely.
+
+## Publishing a new version (maintainer)
+
+`manifest.json` ships with an empty `versions` array until a real, downloadable build is attached to a GitHub Release. To publish one:
+
+1. Build the `.dll` (see "Building from source" above, or your existing build pipeline).
+2. Zip just the plugin DLL — don't include the `.pdb`:
+   ```
+   zip -j audiotrackpriority_1.2.0.0.zip bin/Release/net9.0/Jellyfin.Plugin.AudioTrackPriority.dll
+   ```
+3. Compute its MD5 checksum — Jellyfin's manifest format requires this exact hash to verify the download:
+   ```
+   md5sum audiotrackpriority_1.2.0.0.zip
+   ```
+   (PowerShell equivalent: `(Get-FileHash -Algorithm MD5 .\audiotrackpriority_1.2.0.0.zip).Hash.ToLower()`)
+4. On GitHub: **Releases → Draft a new release**, tag it `v1.2.0.0`, and attach the zip as a release asset. Publish the release.
+5. Copy the asset's download URL — it follows the pattern
+   ```
+   https://github.com/fasterplayer/jellyfin-audio-track-priority/releases/download/v1.2.0.0/audiotrackpriority_1.2.0.0.zip
+   ```
+6. Edit `manifest.json` and append a version entry:
+   ```json
+   {
+     "version": "1.2.0.0",
+     "changelog": "Per-rule \"prefer a Forced subtitle track\" setting.",
+     "targetAbi": "10.11.0.0",
+     "sourceUrl": "https://github.com/fasterplayer/jellyfin-audio-track-priority/releases/download/v1.2.0.0/audiotrackpriority_1.2.0.0.zip",
+     "checksum": "<the md5 hash from step 3, lowercase hex>",
+     "timestamp": "2026-09-07T00:00:00Z"
+   }
+   ```
+7. Commit and push `manifest.json`. Existing installs pick up the new version the next time Jellyfin checks its repositories (or immediately via **Dashboard → Plugins → Catalog → Check for updates now**, if your version has one).
+
+Repeat steps 1–7 for every future release; keep older version entries in the array so servers pinned to an older Jellyfin ABI can still install a compatible build.
 
 ## CI
 
