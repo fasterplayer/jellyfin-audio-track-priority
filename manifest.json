@@ -1,0 +1,12 @@
+[
+  {
+    "guid": "6b8790b2-e367-4076-8e07-9fc092702b32",
+    "name": "Audio Track Priority",
+    "description": "Picks the default audio and subtitle track by their Title field when several tracks share the same ISO language code, such as a Quebec French (VFQ) dub next to a France French (VFF) dub, both tagged \"fra\". Define, per language, an ordered list of title patterns and Jellyfin will default to the first match. No media file is modified.",
+    "overview": "Default audio and subtitle track selection by track title, per language.",
+    "owner": "frivard",
+    "category": "General",
+    "imageUrl": "",
+    "versions": []
+  }
+]
