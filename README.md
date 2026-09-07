@@ -18,6 +18,25 @@ For each per-language rule (`LanguageRule`) you configure:
 
 Rules are matched against the viewer's own "preferred audio language" setting (or a configured fallback), with language codes expanded through Jellyfin's culture tables so that regional variants (e.g. `fr-CA` / `frc`) still match a rule written for the parent language (`fra`).
 
+## Finding the title to use for a pattern
+
+The config page's preset dropdown (VFQ, VFF, Brasil, Latino, etc.) covers the common cases, but a pattern only works if it matches (even partially, case-insensitively) the actual `Title` tag stored on the track. When a file doesn't fit a preset, read that tag directly instead of guessing:
+
+- **In Jellyfin itself** (no tools needed): open the item, click the "..." menu (or the ⓘ icon in the player) → **Media info**. Every audio and subtitle track is listed there with its `Title` exactly as stored in the file.
+- **With `ffprobe`**, run against the file from inside the Jellyfin container (it ships with `jellyfin-ffmpeg`) or from any machine with ffmpeg installed:
+
+```
+docker exec jellyfin ffprobe -v quiet -print_format json -show_streams "/path/inside/container/Movie.mkv" | jq '.streams[] | select(.codec_type=="audio" or .codec_type=="subtitle") | {index, codec_type, language: .tags.language, title: .tags.title}'
+```
+
+- **With `mkvmerge`** (from the `mkvtoolnix` package, or the `jlesage/mkvtoolnix` Docker image) if you'd rather not touch the Jellyfin container:
+
+```
+docker run --rm -v "/volume1/Docker/media:/media" jlesage/mkvtoolnix mkvmerge -J "/media/Movie/Movie.mkv" | jq '.tracks[] | {id, type, language: .properties.language, title: .properties.track_name}'
+```
+
+Adjust the container name, mounted path and file path to match your setup. Whatever the `title` field comes back as (or `""`/`null` if the track has no title at all — in which case a title-based rule can never match it, and only the language/Forced-flag logic applies) is exactly what your rule's pattern needs to match a substring of.
+
 ## Project layout
 
 - `Jellyfin.Plugin.AudioTrackPriority.slnx` — solution file
