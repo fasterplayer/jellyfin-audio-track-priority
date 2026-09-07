@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Audio Track Priority</title>
+</head>
+<body>
+<div id="AtpConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="AtpConfigForm">
+
+                <div class="verticalSection">
+                    <h2 class="sectionTitle">Audio Track Priority</h2>
+                    <p class="fieldDescription">
+                        When several audio tracks share the same language code, Jellyfin cannot tell them
+                        apart &mdash; a Quebec French dub and a France French dub are both just "fra".
+                        Define, per language, which track titles win. Matching is a case insensitive
+                        substring search on the audio track title. Nothing is written to your media files.
+                    </p>
+                </div>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input is="emby-checkbox" type="checkbox" id="Enabled" />
+                        <span>Enable</span>
+                    </label>
+                </div>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input is="emby-checkbox" type="checkbox" id="UsePreferredAudioLanguage" />
+                        <span>Use each user's preferred audio language</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">
+                        Picks the rule that matches the viewer's own "Preferred audio language" setting
+                        (Settings &gt; Playback). Turn this off to always use the fallback language below.
+                    </div>
+                </div>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="FallbackLanguage">Fallback language</label>
+                    <select is="emby-select" id="FallbackLanguage" class="emby-select"></select>
+                    <div class="fieldDescription">
+                        Used when the viewer has no preferred audio language, or when a request carries
+                        no user context.
+                    </div>
+                </div>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input is="emby-checkbox" type="checkbox" id="RestrictToLanguage" />
+                        <span>Only consider tracks in the rule's language</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">
+                        Recommended. Turn it off to let a rule match a track title in any language.
+                    </div>
+                </div>
+
+                <div class="verticalSection">
+                    <h3 class="sectionTitle">Rules</h3>
+                    <div id="AtpRules"></div>
+                    <div style="margin-top:1em;">
+                        <button is="emby-button" type="button" id="AtpAddRule" class="raised">
+                            <span>Add a rule</span>
+                        </button>
+                        <select is="emby-select" id="AtpPreset" class="emby-select" style="margin-top:1em;">
+                            <option value="">Add from a preset...</option>
+                            <option value="fra|VFQ&#10;Quebecois&#10;Qu&#233;b&#233;cois&#10;Canad">French &mdash; prefer Quebec dub</option>
+                            <option value="fra|VFF&#10;TRUEFRENCH&#10;France">French &mdash; prefer France dub</option>
+                            <option value="por|Brasil&#10;Brazil&#10;pt-BR&#10;BR">Portuguese &mdash; prefer Brazilian dub</option>
+                            <option value="por|Portugal&#10;pt-PT&#10;European">Portuguese &mdash; prefer European dub</option>
+                            <option value="spa|Latino&#10;LATAM&#10;Latin&#10;Mexic">Spanish &mdash; prefer Latin American dub</option>
+                            <option value="spa|Castellano&#10;Castilian&#10;Espa&#241;a&#10;Spain">Spanish &mdash; prefer Castilian dub</option>
+                            <option value="|Atmos&#10;DTS-HD&#10;TrueHD">Any language &mdash; prefer high end audio</option>
+                        </select>
+                    </div>
+                    <p class="fieldDescription" style="margin-top:1em;">
+                        Rules are matched by language. Within a rule, patterns are ordered: the first one
+                        that matches a track wins. If no pattern matches, Jellyfin's normal choice is kept.
+                        A rule with no language acts as a catch-all for every other language. Each rule can
+                        also pick a default subtitle track: reuse the same language and patterns as audio,
+                        use a different language and patterns of its own (for example, always default to
+                        English subtitles), or leave subtitle selection to Jellyfin entirely.
+                    </p>
+                </div>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input is="emby-checkbox" type="checkbox" id="VerboseLogging" />
+                        <span>Log every override</span>
+                    </label>
+                </div>
+
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                        <span>Save</span>
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginId = '6b8790b2-e367-4076-8e07-9fc092702b32';
+            var page = document.querySelector('#AtpConfigPage');
+            var cultures = [];
+
+            function languageOptions(selected) {
+                var html = '<option value="">Any language</option>';
+                for (var i = 0; i < cultures.length; i++) {
+                    var c = cultures[i];
+                    var code = c.ThreeLetterISOLanguageName || c.TwoLetterISOLanguageName || c.Name;
+                    if (!code) { continue; }
+                    var sel = (selected && selected.toLowerCase() === code.toLowerCase()) ? ' selected' : '';
+                    html += '<option value="' + code + '"' + sel + '>' + c.DisplayName + '</option>';
+                }
+                return html;
+            }
+
+            function addRuleRow(rule) {
+                var container = page.querySelector('#AtpRules');
+                var row = document.createElement('div');
+                row.className = 'atpRule verticalSection';
+                row.style.border = '1px solid rgba(128,128,128,.4)';
+                row.style.borderRadius = '4px';
+                row.style.padding = '1em';
+                row.style.marginBottom = '1em';
+                row.innerHTML =
+                    '<div class="selectContainer">' +
+                    '  <label class="selectLabel">Language</label>' +
+                    '  <select is="emby-select" class="emby-select atpLang">' + languageOptions(rule.Language) + '</select>' +
+                    '</div>' +
+                    '<div class="inputContainer">' +
+                    '  <label class="inputLabel inputLabelUnfocused">Title patterns, most preferred first (one per line)</label>' +
+                    '  <textarea is="emby-textarea" class="emby-input atpPatterns" rows="4"></textarea>' +
+                    '</div>' +
+                    '<div class="verticalSection" style="margin-top:1em;border-top:1px solid rgba(128,128,128,.25);padding-top:1em;">' +
+                    '  <h4 class="sectionTitle" style="margin:0 0 .5em;">Subtitles</h4>' +
+                    '  <div class="selectContainer">' +
+                    '    <label class="selectLabel">Default subtitle</label>' +
+                    '    <select is="emby-select" class="emby-select atpSubMode">' +
+                    '      <option value="Same">Same language and patterns as audio</option>' +
+                    '      <option value="Custom">Different language and patterns</option>' +
+                    '      <option value="Off">Leave subtitle selection to Jellyfin</option>' +
+                    '    </select>' +
+                    '  </div>' +
+                    '  <div class="selectContainer atpSubCustom">' +
+                    '    <label class="selectLabel">Subtitle language</label>' +
+                    '    <select is="emby-select" class="emby-select atpSubLang">' + languageOptions(rule.SubtitleLanguage) + '</select>' +
+                    '  </div>' +
+                    '  <div class="inputContainer atpSubCustom">' +
+                    '    <label class="inputLabel inputLabelUnfocused">Subtitle title patterns, most preferred first (one per line)</label>' +
+                    '    <textarea is="emby-textarea" class="emby-input atpSubPatterns" rows="4"></textarea>' +
+                    '  </div>' +
+                    '  <div class="checkboxContainer checkboxContainer-withDescription atpSubOn">' +
+                    '    <label class="emby-checkbox-label">' +
+                    '      <input is="emby-checkbox" type="checkbox" class="atpSubForced" />' +
+                    '      <span>Prefer a "Forced" subtitle track when available</span>' +
+                    '    </label>' +
+                    '    <div class="fieldDescription checkboxFieldDescription">' +
+                    '      Recommended. When the patterns above don\'t pick a clear winner (or no subtitle' +
+                    '      patterns are set), a track flagged "Forced" wins over a non-forced one &mdash; forced' +
+                    '      tracks usually only translate foreign-language dialogue instead of subtitling the' +
+                    '      whole film.' +
+                    '    </div>' +
+                    '  </div>' +
+                    '</div>' +
+                    '<button is="emby-button" type="button" class="raised atpRemove"><span>Remove this rule</span></button>';
+                row.querySelector('.atpPatterns').value = rule.Patterns || '';
+                row.querySelector('.atpSubMode').value = rule.SubtitleMode || 'Same';
+                row.querySelector('.atpSubPatterns').value = rule.SubtitlePatterns || '';
+                row.querySelector('.atpSubForced').checked = rule.PreferForcedSubtitle !== false;
+                row.querySelector('.atpRemove').addEventListener('click', function () { row.remove(); });
+
+                var subMode = row.querySelector('.atpSubMode');
+                var subCustomEls = row.querySelectorAll('.atpSubCustom');
+                var subOnEls = row.querySelectorAll('.atpSubOn');
+                function updateSubVisibility() {
+                    var show = subMode.value === 'Custom';
+                    for (var i = 0; i < subCustomEls.length; i++) {
+                        subCustomEls[i].style.display = show ? '' : 'none';
+                    }
+                    var on = subMode.value !== 'Off';
+                    for (var j = 0; j < subOnEls.length; j++) {
+                        subOnEls[j].style.display = on ? '' : 'none';
+                    }
+                }
+                subMode.addEventListener('change', updateSubVisibility);
+                updateSubVisibility();
+
+                container.appendChild(row);
+            }
+
+            function readRules() {
+                var rules = [];
+                var rows = page.querySelectorAll('.atpRule');
+                for (var i = 0; i < rows.length; i++) {
+                    rules.push({
+                        Language: rows[i].querySelector('.atpLang').value || '',
+                        Patterns: rows[i].querySelector('.atpPatterns').value || '',
+                        SubtitleMode: rows[i].querySelector('.atpSubMode').value || 'Same',
+                        SubtitleLanguage: rows[i].querySelector('.atpSubLang').value || '',
+                        SubtitlePatterns: rows[i].querySelector('.atpSubPatterns').value || '',
+                        PreferForcedSubtitle: rows[i].querySelector('.atpSubForced').checked
+                    });
+                }
+                return rules;
+            }
+
+            function load() {
+                Dashboard.showLoadingMsg();
+                ApiClient.getCultures().then(function (list) {
+                    cultures = list || [];
+                    return ApiClient.getPluginConfiguration(pluginId);
+                }).then(function (config) {
+                    page.querySelector('#Enabled').checked = config.Enabled !== false;
+                    page.querySelector('#VerboseLogging').checked = config.VerboseLogging === true;
+                    page.querySelector('#UsePreferredAudioLanguage').checked = config.UsePreferredAudioLanguage !== false;
+                    page.querySelector('#RestrictToLanguage').checked = config.RestrictToLanguage !== false;
+                    page.querySelector('#FallbackLanguage').innerHTML = languageOptions(config.FallbackLanguage);
+                    page.querySelector('#AtpRules').innerHTML = '';
+                    (config.Rules || []).forEach(addRuleRow);
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            page.addEventListener('pageshow', load);
+
+            page.querySelector('#AtpAddRule').addEventListener('click', function () {
+                addRuleRow({ Language: '', Patterns: '', SubtitleMode: 'Same', SubtitleLanguage: '', SubtitlePatterns: '' });
+            });
+
+            page.querySelector('#AtpPreset').addEventListener('change', function (e) {
+                var value = e.target.value;
+                if (!value) { return; }
+                var split = value.indexOf('|');
+                addRuleRow({
+                    Language: value.substring(0, split),
+                    Patterns: value.substring(split + 1),
+                    SubtitleMode: 'Same',
+                    SubtitleLanguage: '',
+                    SubtitlePatterns: ''
+                });
+                e.target.value = '';
+            });
+
+            page.querySelector('#AtpConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.Enabled = page.querySelector('#Enabled').checked;
+                    config.VerboseLogging = page.querySelector('#VerboseLogging').checked;
+                    config.UsePreferredAudioLanguage = page.querySelector('#UsePreferredAudioLanguage').checked;
+                    config.RestrictToLanguage = page.querySelector('#RestrictToLanguage').checked;
+                    config.FallbackLanguage = page.querySelector('#FallbackLanguage').value || '';
+                    config.Rules = readRules();
+                    ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+                return false;
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>
