@@ -69,38 +69,6 @@ dotnet build Jellyfin.Plugin.AudioTrackPriority.slnx -c Release
 
 Copy the resulting `Jellyfin.Plugin.AudioTrackPriority.dll` into your Jellyfin server's plugin directory (e.g. `plugins/AudioTrackPriority/`, alongside a `meta.json` derived from `build.yaml`) and restart Jellyfin. This is a manual, one-server install that bypasses the repository/manifest entirely.
 
-## Publishing a new version (maintainer)
-
-`manifest.json`'s `versions` array needs one entry per release, each pointing at a real, downloadable build attached to a GitHub Release. To publish one:
-
-1. Build the `.dll` (see "Building from source" above, or your existing build pipeline).
-2. Zip just the plugin DLL — don't include the `.pdb`:
-   ```
-   zip -j audiotrackpriority_1.3.0.0.zip bin/Release/net9.0/Jellyfin.Plugin.AudioTrackPriority.dll
-   ```
-3. Compute its MD5 checksum — Jellyfin's manifest format requires this exact hash to verify the download:
-   ```
-   md5sum audiotrackpriority_1.3.0.0.zip
-   ```
-   (PowerShell equivalent: `(Get-FileHash -Algorithm MD5 .\audiotrackpriority_1.3.0.0.zip).Hash.ToLower()`)
-4. On GitHub: **Releases → Draft a new release**, tag it with the plain version number — e.g. `1.3.0.0`, no `v` prefix, to match the existing `1.2.0.0` release — and attach the zip as a release asset. Publish the release.
-5. Copy the asset's download URL — it follows the pattern
-   ```
-   https://github.com/fasterplayer/jellyfin-audio-track-priority/releases/download/1.3.0.0/audiotrackpriority_1.3.0.0.zip
-   ```
-6. Edit `manifest.json` and append a version entry:
-   ```json
-   {
-     "version": "1.3.0.0",
-     "changelog": "...",
-     "targetAbi": "10.11.0.0",
-     "sourceUrl": "https://github.com/fasterplayer/jellyfin-audio-track-priority/releases/download/1.3.0.0/audiotrackpriority_1.3.0.0.zip",
-     "checksum": "<the md5 hash from step 3, lowercase hex>",
-     "timestamp": "2026-09-07T00:00:00Z"
-   }
-   ```
-7. Commit and push `manifest.json`, keeping the earlier version entries in the array so servers pinned to an older Jellyfin ABI can still install a compatible build. Existing installs pick up the new version the next time Jellyfin checks its repositories (or immediately via **Dashboard → Plugins → Catalog → Check for updates now**, if your Jellyfin version has one).
-
 ## CI
 
 `.github/workflows/build.yaml` and `.github/workflows/test.yaml` call the shared, public `jellyfin/jellyfin-meta-plugins` reusable workflows to build and test the plugin on every push and pull request — no secrets required. The template's org-specific workflows (release publishing to the official Jellyfin repository, auto-rebase, label sync, changelog bot) were left out since they depend on Jellyfin-organization bot accounts and secrets that don't apply to a personal repository.
