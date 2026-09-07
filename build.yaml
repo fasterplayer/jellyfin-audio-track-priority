@@ -12,7 +12,7 @@ description: >
   an ordered list of title patterns and Jellyfin will default to the first
   match. No media file is modified.
 category: "General"
-owner: "frivard"
+owner: "fasterplayer"
 artifacts:
 - "Jellyfin.Plugin.AudioTrackPriority.dll"
 changelog: >
