@@ -7,6 +7,15 @@
     "owner": "frivard",
     "category": "General",
     "imageUrl": "",
-    "versions": []
+    "versions": [
+      {
+        "version": "1.2.0.0",
+        "changelog": "Per-rule \"Prefer a Forced subtitle track\" setting (previously a single global checkbox).",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/fasterplayer/jellyfin-audio-track-priority/releases/download/1.2.0.0/audiotrackpriority_1.2.0.0.zip",
+        "checksum": "5ab34d120f4a08b341e5812a5bfc7649",
+        "timestamp": "2026-09-07T20:25:00Z"
+      }
+    ]
   }
 ]
