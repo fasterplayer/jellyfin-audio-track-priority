@@ -1,0 +1,20 @@
+---
+name: "Audio Track Priority"
+guid: "6b8790b2-e367-4076-8e07-9fc092702b32"
+version: "1.2.0.0"
+targetAbi: "10.11.0.0"
+framework: "net9.0"
+overview: "Default audio and subtitle track selection by track title, per language."
+description: >
+  Picks the default audio and subtitle track by their Title field when several
+  tracks share the same ISO language code, such as a Quebec French (VFQ) dub
+  next to a France French (VFF) dub, both tagged "fra". Define, per language,
+  an ordered list of title patterns and Jellyfin will default to the first
+  match. No media file is modified.
+category: "General"
+owner: "frivard"
+artifacts:
+- "Jellyfin.Plugin.AudioTrackPriority.dll"
+changelog: >
+  1.2.0.0: the "Prefer a Forced subtitle track" setting moved from a single
+  global checkbox to a per-language-rule setting.
