@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.3.0.0",
+        "changelog": "In \"Same\" subtitle mode, no full subtitle track is chosen when the audio track that will play is already in the preferred language; a real forced track (forced flag, or \"forced\" / \"forcé\" in its title) is still chosen, and a full default track set by Jellyfin itself in that language is cleared. Other audio languages: unchanged.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/fasterplayer/jellyfin-audio-track-priority/releases/download/1.3.0.0/audiotrackpriority_1.3.0.0.zip",
+        "checksum": "f70c787d5890ee4336631267f1e1c376",
+        "timestamp": "2026-10-09T14:00:00Z"
+      },
+      {
         "version": "1.2.0.0",
         "changelog": "Per-rule \"Prefer a Forced subtitle track\" setting (previously a single global checkbox).",
         "targetAbi": "10.11.0.0",

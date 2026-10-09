@@ -108,7 +108,7 @@ public static class TrackSelector
 
             if (subtitles.Count > 0)
             {
-                ApplySubtitles(source, config, rule, targetCodes, subtitles, localization, logger);
+                ApplySubtitles(source, config, rule, targetCodes, audio, subtitles, localization, logger);
             }
         }
         catch (Exception ex)
@@ -213,6 +213,7 @@ public static class TrackSelector
         PluginConfiguration config,
         LanguageRule rule,
         List<string> targetCodes,
+        List<MediaStream> audio,
         List<MediaStream> subtitles,
         ILocalizationManager? localization,
         ILogger? logger)
@@ -248,6 +249,12 @@ public static class TrackSelector
             return;
         }
 
+        // In "Same" mode, when the audio track that will play is already in the preferred
+        // language, a full subtitle track in that language is pointless: only a real forced
+        // track (translating foreign-language dialogue) may still be picked.
+        var forcedOnly = !string.Equals(mode, "Custom", StringComparison.OrdinalIgnoreCase)
+            && IsChosenAudioInLanguage(source, audio, targetCodes, localization);
+
         MediaStream? best = null;
         var bestPatternRank = int.MaxValue;
         var bestForcedRank = int.MaxValue;
@@ -255,6 +262,11 @@ public static class TrackSelector
         foreach (var stream in subtitles)
         {
             if (restrict && !Intersects(ExpandLanguage(stream.Language, localization), codes))
+            {
+                continue;
+            }
+
+            if (forcedOnly && !IsForcedTrack(stream))
             {
                 continue;
             }
@@ -290,6 +302,32 @@ public static class TrackSelector
             }
         }
 
+        if (best is null && forcedOnly && source.DefaultSubtitleStreamIndex.HasValue)
+        {
+            // No forced track to pick. If Jellyfin itself defaulted to a full track in the preferred
+            // language (e.g. the file flags it as default), drop it: the audio is already understood.
+            foreach (var stream in subtitles)
+            {
+                if (stream.Index == source.DefaultSubtitleStreamIndex.Value
+                    && !IsForcedTrack(stream)
+                    && Intersects(ExpandLanguage(stream.Language, localization), targetCodes))
+                {
+                    if (config.VerboseLogging)
+                    {
+                        logger?.LogInformation(
+                            "AudioTrackPriority: default subtitle track #{Previous} {Title} cleared (audio already in the preferred language)",
+                            stream.Index,
+                            stream.Title);
+                    }
+
+                    source.DefaultSubtitleStreamIndex = null;
+                    break;
+                }
+            }
+
+            return;
+        }
+
         if (best is null || source.DefaultSubtitleStreamIndex == best.Index)
         {
             return;
@@ -306,6 +344,59 @@ public static class TrackSelector
         }
 
         source.DefaultSubtitleStreamIndex = best.Index;
+    }
+
+    /// <summary>
+    /// A forced track is one flagged as forced, or whose title says so ("forced" / "forcé").
+    /// </summary>
+    private static bool IsForcedTrack(MediaStream stream)
+    {
+        if (stream.IsForced)
+        {
+            return true;
+        }
+
+        var title = stream.Title;
+        return !string.IsNullOrWhiteSpace(title)
+            && (title.Contains("forced", StringComparison.OrdinalIgnoreCase)
+                || title.Contains("forcé", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// True when the audio track that will play (the source's default audio, or the only audio
+    /// track) is tagged with the preferred language.
+    /// </summary>
+    private static bool IsChosenAudioInLanguage(
+        MediaSourceInfo source,
+        List<MediaStream> audio,
+        List<string> targetCodes,
+        ILocalizationManager? localization)
+    {
+        if (targetCodes.Count == 0 || audio.Count == 0)
+        {
+            return false;
+        }
+
+        MediaStream? chosen = null;
+        if (source.DefaultAudioStreamIndex.HasValue)
+        {
+            foreach (var stream in audio)
+            {
+                if (stream.Index == source.DefaultAudioStreamIndex.Value)
+                {
+                    chosen = stream;
+                    break;
+                }
+            }
+        }
+        else if (audio.Count == 1)
+        {
+            chosen = audio[0];
+        }
+
+        return chosen is not null
+            && !string.IsNullOrWhiteSpace(chosen.Language)
+            && Intersects(ExpandLanguage(chosen.Language, localization), targetCodes);
     }
 
     /// <summary>

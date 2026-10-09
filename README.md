@@ -25,6 +25,8 @@ For each per-language rule (`LanguageRule`) you configure:
 - a subtitle mode of `Same` (reuse the audio language/patterns), `Custom` (its own language and patterns — e.g. always default to English subtitles), or `Off` (leave subtitle selection to Jellyfin);
 - an optional "prefer a Forced subtitle track" setting, used as a tiebreaker per rule when the patterns don't produce a clear winner.
 
+In `Same` subtitle mode, when the audio track that will play is already in the viewer's preferred language, no full subtitle track is chosen: only a real forced track (forced flag, or "forced" / "forcé" in its title) can still be picked, and a full track in that language that Jellyfin itself defaulted to (e.g. flagged as default in the file) is cleared. When the audio is in another language, the subtitle rule applies as before.
+
 Rules are matched against the viewer's own "preferred audio language" setting (or a configured fallback), with language codes expanded through Jellyfin's culture tables so that regional variants (e.g. `fr-CA` / `frc`) still match a rule written for the parent language (`fra`).
 
 ## Finding the title to use for a pattern
@@ -75,4 +77,6 @@ Copy the resulting `Jellyfin.Plugin.AudioTrackPriority.dll` into your Jellyfin s
 
 ## Current version
 
-**1.2.0.0** — targets Jellyfin 10.11 / net9.0. Per-rule "prefer a Forced subtitle track" setting (previously a single global checkbox). Published as a [GitHub Release](https://github.com/fasterplayer/jellyfin-audio-track-priority/releases/tag/1.2.0.0) and listed in `manifest.json`.
+**1.3.0.0** — targets Jellyfin 10.11 / net9.0. In `Same` subtitle mode, no full subtitle track when the audio is already in the preferred language (forced tracks still chosen). Published as a [GitHub Release](https://github.com/fasterplayer/jellyfin-audio-track-priority/releases/tag/1.3.0.0) and listed in `manifest.json`.
+
+**1.2.0.0** — Per-rule "prefer a Forced subtitle track" setting (previously a single global checkbox).
